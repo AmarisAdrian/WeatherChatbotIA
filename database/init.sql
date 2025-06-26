@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS conversations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_name VARCHAR(100) NOT NULL, 
     user_message TEXT NOT NULL,
-    ai_response TEXT NOT NULL,
-    api_response TEXT NOT NULL,
+    ai_response TEXT NULL,
+    api_response TEXT  NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
