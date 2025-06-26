@@ -8,33 +8,48 @@ class WeatherService
     {
         $geoResponse = Http::get('https://geocoding-api.open-meteo.com/v1/search', [
             'name' => $city,
-            'count' => 1,
+            'count' => 5,
             'language' => 'es',
         ]);
 
-        if (!$geoResponse->successful()) {
+        if (!$geoResponse->successful() || empty($geoResponse->json()['results'])) {
             return null;
         }
 
-        $geo = $geoResponse->json();
-        if (empty($geo['results'][0])) {
+        $results = $geoResponse->json()['results'];
+        $bestMatch = $this->findBestCityMatch($results, $city);
+
+        if (!$bestMatch) {
             return null;
         }
-
-        $lat = $geo['results'][0]['latitude'];
-        $lon = $geo['results'][0]['longitude'];
 
         $weatherResponse = Http::get('https://api.open-meteo.com/v1/forecast', [
-            'latitude' => $lat,
-            'longitude' => $lon,
+            'latitude' => $bestMatch['latitude'],
+            'longitude' => $bestMatch['longitude'],
             'daily' => 'temperature_2m_max,precipitation_sum',
-            'timezone' => 'auto'
+            'timezone' => 'auto',
+            'forecast_days' => 2 
         ]);
 
         if (!$weatherResponse->successful()) {
             return null;
         }
 
-        return $weatherResponse->json();
+        return [
+            'weather' => $weatherResponse->json(),
+            'location' => $bestMatch
+        ];
+    }
+
+    protected function findBestCityMatch(array $results, string $searchCity): ?array
+    {
+        $searchCity = strtolower($searchCity);
+        
+        foreach ($results as $city) {
+            if (strtolower($city['name']) === $searchCity) {
+                return $city;
+            }
+        }
+        return $results[0] ?? null;
     }
 }

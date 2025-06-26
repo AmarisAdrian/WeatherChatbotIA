@@ -105,6 +105,7 @@ const messages = ref([])
 const newMessage = ref('')
 const loading = ref(false)
 const currentUser = ref('usuario_demo') 
+const weatherData = ref(null); 
 // const apiMessage = ref(null)
 const conversations = computed(() => state.value.response?.data?.data || [])
 const apiMessage = computed(() => state.value.response?.data?.message || '')
@@ -141,7 +142,7 @@ function selectConversation(conv) {
 }
 
 
-  async function sendMessage() {
+    async function sendMessage() {
     if (!newMessage.value.trim() || loading.value) return
     
     try {
@@ -166,7 +167,7 @@ function selectConversation(conv) {
         text: response.data.response, 
         from: 'ai',
         timestamp: new Date().toISOString(),
-        weather: weatherData.value 
+        weather: weatherData.value
       })
       
       await updateConversationHistory()
@@ -188,16 +189,15 @@ function selectConversation(conv) {
     } finally {
       loading.value = false
     }
-
+  }
   async function updateConversationHistory() {
     try {
       const historyResponse = await api.get('/chat', {
         params: { user_name: currentUser.value }
       })
-      conversations.value = historyResponse.data.conversations || []
+      state.value.response = historyResponse
     } catch (error) {
       console.error('Error actualizando historial:', error)
     }
   }
-}
 </script>
