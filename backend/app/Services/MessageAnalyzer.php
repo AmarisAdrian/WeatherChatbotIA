@@ -16,7 +16,23 @@ class MessageAnalyzer
     }
     public function extractCity(string $message): ?string
     {
-        preg_match('/en\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+)/u', $message, $matches);
-        return $matches[1] ?? null;
+        if (preg_match('/en\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]+)/u', $message, $matches)) {
+            return trim($matches[1]);
+        }
+        $words = explode(' ', $message);
+        $possibleCity = null;
+
+        foreach ($words as $word) {
+            if (in_array(strtolower($word), ['hoy', 'mañana', 'el', 'la', 'un', 'una', 'en', 'de', 'a'])) {
+                continue;
+            }
+            if (preg_match('/^[A-ZÁÉÍÓÚÑ]/u', $word)) {
+                $possibleCity = $word;
+            }
+        }
+        return $possibleCity;
     }
+
+
+
 }
