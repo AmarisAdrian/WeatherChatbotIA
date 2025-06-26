@@ -51,6 +51,15 @@ class ChatController extends Controller
                     $temp = $daily['temperature_2m_max'][1] ?? 'desconocida';
                     $rain = $daily['precipitation_sum'][1] ?? 'desconocida';
 
+                    $weatherData = [
+                        'city' => $city,
+                        'date' => $fecha,
+                        'temperature' => $temp,
+                        'precipitation' => $rain,
+                        'formatted' => "Clima en ☔ $city ($fecha):\n- Temperatura: {$temp}°C\n- Precipitación: {$rain} mm"
+                    ];
+                    
+
                     $dataFormateada = "Clima en ☔ $city ($fecha):\n- Temperatura: {$temp}°C\n- Precipitación: {$rain} mm";
 
                     $finalPrompt = "Usuario preguntó: $prompt\n\nDatos del clima disponibles:\n$dataFormateada\n\nPor favor responde con claridad en español, usando esta información para generar una respuesta natural y amigable.";
@@ -59,22 +68,22 @@ class ChatController extends Controller
         } else {
             $finalPrompt = "Usuario preguntó: $prompt\n\nNo requiere consultar datos externos de clima. Responde con claridad en español.";
         }
-
+         
         $response = $this->openAI->ask($finalPrompt);
 
         if (!$response) {
-            return response()->json(['error' => 'Falló al obtener una respuesta de IA'], 500);
+            return response()->json(['error' => 'Falló al obtener una respuesta de IA','weatherData' => $weatherData ], 500);
         }
 
         $conversation = new ConversationData(
             user_name: $userName,
             user_message: $prompt,
             ai_response: $response,
-            api_response: $dataFormateada
+            api_response: $dataFormateada ? json_encode($weatherData) : null
         );
         $this->repo->save($conversation);
 
-        return response()->json(['response' => $response], 200);
+        return response()->json(['response' => $response,'weatherData' => $weatherData ], 200);
     }
     public function historyByUser(Request $request)
     {
@@ -86,11 +95,11 @@ class ChatController extends Controller
         if (empty($conversations)) {
             return response()->json([
                 'message' => "No se encontraron conversaciones para el usuario: $userName"
-            ], 404);
+            ], 200);
         }
         return response()->json([
             'user_name' => $userName,
             'conversations' => $conversations
-        ], 200);
+        ], 201);
     }
 }
