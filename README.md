@@ -36,10 +36,16 @@ Chatbot inteligente que consulta información meteorológica y responde a pregun
     - DB_PASSWORD=root
    
     Archivo 2: backend/.env (Copiar de backend/.env.example y modificar):
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=weather_chatbot
+      - DB_USERNAME=chatbot_user
+      - DB_PASSWORD=root
       - OPENAI_API_KEY=sk-tu-key-de-openai-aqui
       - APP_NAME="Weather Chatbot"
       - APP_URL=http://localhost:8000
-3. Iniciar la aplicación
+4. Iniciar la aplicación
    
    🌐 Acceso a la Aplicación
       - Frontend	http://localhost:5173
