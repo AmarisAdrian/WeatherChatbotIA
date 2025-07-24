@@ -18,7 +18,5 @@ function selectConversation(history) {
 }
 
 function sendMessage(message) {
-  // Lógica para enviar mensaje a Laravel y actualizar `messages`
-  // Usa fetch o axios
 }
 </script>

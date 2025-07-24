@@ -2,7 +2,7 @@
   <div class="flex flex-col h-full">
     <div class="flex-1 p-4 overflow-y-auto space-y-4">
       <MessageBubble 
-        v-for="(msg, index) in messages" 
+        v-for="(msg, index) in state.messages" 
         :key="index" 
         :text="msg.text" 
         :from="msg.from" 
