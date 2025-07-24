@@ -19,7 +19,7 @@ class ConversationRepository
     public function findByUserName(string $userName): array
     {
         return Conversation::where('user_name', $userName)
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', 'asc')
             ->get()
             ->toArray();
     }
