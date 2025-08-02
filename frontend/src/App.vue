@@ -70,19 +70,39 @@
       <form @submit.prevent="sendMessage" class="flex p-4 border-t border-gray-700">
         <input
           v-model="newMessage"
+          :disabled="!currentUser"
           type="text"
           placeholder="Escribe tu mensaje..."
-          class="flex-1 px-4 py-2 rounded-l-lg bg-gray-800 text-white border border-gray-600 focus:outline-none"
+          class="flex-1 px-4 py-2 rounded-l-lg bg-gray-800 text-white border border-gray-600 focus:outline-none disabled:opacity-50"
         />
         <button
           type="submit"
-          class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-500 transition"
+          :disabled="!currentUser"
+          class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-500 transition disabled:opacity-50"
         >
           Enviar
         </button>
       </form>
     </main>
   </div>
+  <div v-if="!currentUser" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+  <div class="bg-gray-800 p-6 rounded-lg text-white w-80">
+    <h2 class="text-lg font-semibold mb-4">Ingresa tu nombre</h2>
+    <input
+      v-model="tempUser"
+      type="text"
+      class="w-full px-3 py-2 rounded bg-gray-700 text-white focus:outline-none"
+      placeholder="Nombre de usuario"
+    />
+    <button
+      @click="saveUser"
+      class="mt-4 w-full bg-blue-600 hover:bg-blue-500 py-2 rounded transition"
+    >
+      Guardar
+    </button>
+  </div>
+</div>
+
 </template>
 
 <script setup>
@@ -95,9 +115,11 @@ const messages = ref([])
 const conversations = ref([])
 const selectedConversation = ref(null)
 const weatherData = ref(null)
-const currentUser = ref('usuario_demo')
+const currentUser = ref('')
 const apiMessage = ref('')
 const loadingHistory = ref(false)
+const tempUser = ref('')
+
 
 const api = axios.create({
   baseURL: 'http://localhost:8000/api/v1',
@@ -250,5 +272,33 @@ const tryParseWeather = (data) => {
   }
 }
 
-onMounted(loadHistory)
+async function fetchUser() {
+  try {
+    const response = await api.get('/user')
+    if (response.data.user_name) {
+      currentUser.value = response.data.user_name
+    }
+  } catch (error) {
+    console.error('Error obteniendo usuario desde Redis:', error)
+  }
+}
+
+async function saveUser() {
+  if (!tempUser.value.trim()) return
+  try {
+    await api.post('/user', { user_name: tempUser.value })
+    currentUser.value = tempUser.value
+    await loadHistory()
+  } catch (err) {
+    console.error('Error guardando usuario:', err)
+  }
+}
+
+onMounted(async () => {
+  await fetchUser()
+  if (currentUser.value) {
+    await loadHistory()
+  }
+})
+
 </script>
