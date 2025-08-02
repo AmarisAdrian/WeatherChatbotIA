@@ -9,6 +9,8 @@ use App\Repositories\ConversationRepository;
 use App\Services\MessageAnalyzer;
 use App\Services\WeatherService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
+
 class ChatController extends Controller
 {
     protected $openAI;
@@ -23,73 +25,73 @@ class ChatController extends Controller
         $this->weatherService = $weatherService;
     }
 
-   public function ask(Request $request)
-{
-    $request->validate([
-        'user_name' => 'required|string|max:100',
-        'message' => 'required|string',
-    ]);
+    public function ask(Request $request)
+    {
+        $request->validate([
+            'user_name' => 'required|string|max:100',
+            'message' => 'required|string',
+        ]);
 
-    $userName = $request->input('user_name');
-    $prompt = $request->input('message');
-    $finalPrompt = $prompt;
-    $weatherData = null;
+        $userName = $request->input('user_name');
+        $prompt = $request->input('message');
+        $finalPrompt = $prompt;
+        $weatherData = null;
 
-    if ($this->analyzer->needsWeatherData($prompt)) {
-        $city = $this->analyzer->extractCity($prompt);
-        Log::warning("No se detectó ciudad en el mensaje: $city");
-        if (!$city) {
-            $finalPrompt = "Usuario preguntó: $prompt\n\nNo se pudo detectar una ciudad. Responde sin datos del clima.";
-        } else {
-            $forecast = $this->weatherService->getForecast($city);
-
-            if (!$forecast) {
-                $finalPrompt = "Usuario preguntó: $prompt\n\nNo se pudo obtener el clima para '$city'. Responde lo mejor posible sin datos del clima.";
+        if ($this->analyzer->needsWeatherData($prompt)) {
+            $city = $this->analyzer->extractCity($prompt);
+            Log::warning("No se detectó ciudad en el mensaje: $city");
+            if (!$city) {
+                $finalPrompt = "Usuario preguntó: $prompt\n\nNo se pudo detectar una ciudad. Responde sin datos del clima.";
             } else {
-                $daily = $forecast['weather']['daily'] ?? [];
-                $fecha = $daily['time'][1] ?? 'fecha desconocida';
-                $temp = $daily['temperature_2m_max'][1] ?? 'desconocida';
-                $rain = $daily['precipitation_sum'][1] ?? 'desconocida';
+                $forecast = $this->weatherService->getForecast($city);
 
-                $weatherData = [
-                    'city' => $forecast['location']['name'] ?? $city,
-                    'country' => $forecast['location']['country'] ?? '',
-                    'date' => $fecha,
-                    'temperature' => $temp,
-                    'precipitation' => $rain,
-                    'formatted' => "Clima en {$forecast['location']['name']} ({$fecha}):\n- Temperatura: {$temp}°C\n- Precipitación: {$rain} mm"
-                ];
+                if (!$forecast) {
+                    $finalPrompt = "Usuario preguntó: $prompt\n\nNo se pudo obtener el clima para '$city'. Responde lo mejor posible sin datos del clima.";
+                } else {
+                    $daily = $forecast['weather']['daily'] ?? [];
+                    $fecha = $daily['time'][1] ?? 'fecha desconocida';
+                    $temp = $daily['temperature_2m_max'][1] ?? 'desconocida';
+                    $rain = $daily['precipitation_sum'][1] ?? 'desconocida';
 
-                $finalPrompt = "Usuario preguntó: $prompt\n\nDatos del clima disponibles:\n{$weatherData['formatted']}\n\nPor favor responde con claridad en español, usando esta información para generar una respuesta natural y amigable.";
+                    $weatherData = [
+                        'city' => $forecast['location']['name'] ?? $city,
+                        'country' => $forecast['location']['country'] ?? '',
+                        'date' => $fecha,
+                        'temperature' => $temp,
+                        'precipitation' => $rain,
+                        'formatted' => "Clima en {$forecast['location']['name']} ({$fecha}):\n- Temperatura: {$temp}°C\n- Precipitación: {$rain} mm"
+                    ];
+
+                    $finalPrompt = "Usuario preguntó: $prompt\n\nDatos del clima disponibles:\n{$weatherData['formatted']}\n\nPor favor responde con claridad en español, usando esta información para generar una respuesta natural y amigable.";
+                }
             }
+        } else {
+            $finalPrompt = "Usuario preguntó: $prompt\n\nNo requiere consultar datos externos de clima. Responde con claridad en español.";
         }
-    } else {
-        $finalPrompt = "Usuario preguntó: $prompt\n\nNo requiere consultar datos externos de clima. Responde con claridad en español.";
-    }
-     
-    $response = $this->openAI->ask($finalPrompt);
 
-    if (!$response) {
+        $response = $this->openAI->ask($finalPrompt);
+
+        if (!$response) {
+            return response()->json([
+                'error' => 'Falló al obtener una respuesta de IA',
+                'weatherData' => $weatherData
+            ], 500);
+        }
+
+        $conversation = new ConversationData(
+            user_name: $userName,
+            user_message: $prompt,
+            ai_response: $response,
+            api_response: $weatherData ? json_encode($weatherData) : 'No aplica'
+        );
+
+        $this->repo->save($conversation);
+
         return response()->json([
-            'error' => 'Falló al obtener una respuesta de IA',
+            'response' => $response,
             'weatherData' => $weatherData
-        ], 500);
+        ], 200);
     }
-
-    $conversation = new ConversationData(
-        user_name: $userName,
-        user_message: $prompt,
-        ai_response: $response,
-        api_response: $weatherData ? json_encode($weatherData) : 'No aplica'
-    );
-    
-    $this->repo->save($conversation);
-
-    return response()->json([
-        'response' => $response,
-        'weatherData' => $weatherData
-    ], 200);
-}
     public function historyByUser(Request $request)
     {
         $request->validate([
@@ -106,5 +108,26 @@ class ChatController extends Controller
             'user_name' => $userName,
             'conversations' => $conversations
         ], 201);
+    }
+    public function storeUsername(request $request){
+        $request->validate([
+            'user_name' => 'required|string|max:100'
+        ]);
+
+        $userName = $request->input('user_name');
+        Redis::set('chatbot_user', $userName);
+
+        return response()->json(['status' => 'ok']);
+    }
+    public function getUserName()
+    {
+        $user = Redis::get('chatbot_user');
+        return response()->json(['user_name' => $user]);
+    }
+
+    public function clearUserName()
+    {
+        Redis::del('chatbot_user');
+        return response()->json(['status' => 'ok']);
     }
 }
