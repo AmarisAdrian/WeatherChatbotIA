@@ -46,8 +46,8 @@ Chatbot inteligente que consulta información meteorológica y responde a pregun
       - APP_NAME="Weather Chatbot"
       - APP_URL=http://localhost:8000
   
-4. Para crear una imagen de la prueba debe ejecutar docker-compose --build up -d
-5. Iniciar la aplicación
+3. Para crear una imagen del bot debe ejecutar docker-compose --build up -d
+4. Iniciar la aplicación
    
    🌐 Acceso a la Aplicación
       - Frontend	http://localhost:5173
